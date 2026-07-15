@@ -79,6 +79,13 @@
           </div>
         </div>
 
+        <!-- 360° real-footage overlay -->
+        <div class="showcase" id="showcase" hidden>
+          <img id="showcaseImg" alt="360 degree car preview" draggable="false" />
+          <div class="showcase__hint">⟲ drag to rotate</div>
+          <button class="showcase__close" id="showcaseClose">✕ Back to 3D</button>
+        </div>
+
         <div class="config__stage-toolbar">
           <button class="tool-btn is-active" id="btnAutoRotate" title="Auto-rotate">⟳ <span>Rotate</span></button>
           <button class="tool-btn" id="btnMotion" title="Motion mode">≋ <span>Motion</span></button>
@@ -95,6 +102,7 @@
           <button class="panel__tab" data-tab="wheels">Wheels</button>
           <button class="panel__tab" data-tab="extras">Extras</button>
           <button class="panel__tab" data-tab="scene">Scene</button>
+          <button class="panel__tab" data-tab="showcase">360°</button>
         </div>
 
         <div class="panel__body">
@@ -136,6 +144,13 @@
           <div class="panel__page" data-page="scene">
             <h3 class="panel__label">Environment</h3>
             <div class="env-grid" id="envGrid"></div>
+          </div>
+
+          <!-- 360° SHOWCASE -->
+          <div class="panel__page" data-page="showcase">
+            <h3 class="panel__label">Real-footage 360° previews</h3>
+            <p class="panel__hint">Cinematic captures with the background removed — drag in the viewport to rotate. Preview only, doesn't change your build.</p>
+            <div class="show-grid" id="showGrid"></div>
           </div>
         </div>
 

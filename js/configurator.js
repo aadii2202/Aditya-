@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import {
-  MODELS, PAINTS, FINISHES, TRIMS, WHEELS, RIMS, TINTS, GLOWS, OPTIONS, ENVIRONMENTS,
+  MODELS, PAINTS, FINISHES, TRIMS, WHEELS, RIMS, TINTS, GLOWS, OPTIONS, ENVIRONMENTS, SHOWCASES,
   buildCar, attachSpoiler, attachQuadExhaust, createMaterialKit,
 } from './cars.js';
 
@@ -162,6 +162,7 @@ function priceTable() {
 function totalPrice() { return priceTable().reduce((s, r) => s + r[2], 0); }
 
 function rebuildCar(animated = true) {
+  if (showcase.active) closeShowcase();
   const spawn = () => {
     if (car) {
       scene.remove(car);
@@ -416,6 +417,89 @@ mount('envGrid', ENVIRONMENTS, (e) => el(
   });
 }
 
+// ── 360° real-footage showcase ─────────────────────────────────
+const showcaseEl = document.getElementById('showcase');
+const showcaseImg = document.getElementById('showcaseImg');
+const showcase = { active: null, frame: 0, images: [], loaded: 0, spin: true, lastSpin: 0 };
+
+function showcaseSrc(sc, i) { return `${sc.dir}/f${String(i).padStart(2, '0')}.webp`; }
+
+function openShowcase(sc, cardEl) {
+  document.querySelectorAll('.show-card').forEach((n) => n.classList.remove('is-active'));
+  cardEl.classList.add('is-active');
+  showcase.active = sc;
+  showcase.frame = 0;
+  showcase.spin = true;
+  showcase.images = new Array(sc.frames);
+  showcase.loaded = 0;
+  for (let i = 0; i < sc.frames; i++) {
+    const im = new Image();
+    im.src = showcaseSrc(sc, i);
+    im.onload = () => { showcase.loaded++; };
+    showcase.images[i] = im;
+  }
+  showcaseImg.src = showcaseSrc(sc, 0);
+  showcaseEl.hidden = false;
+  if (car) car.visible = false;
+  controls.autoRotate = false;
+  document.getElementById('hudModelName').textContent = sc.name + ' · 360°';
+}
+
+function closeShowcase() {
+  showcase.active = null;
+  showcaseEl.hidden = true;
+  document.querySelectorAll('.show-card').forEach((n) => n.classList.remove('is-active'));
+  if (car) car.visible = true;
+  controls.autoRotate = state.autoRotate;
+  document.getElementById('hudModelName').textContent = MODELS.find((m) => m.id === state.model).name;
+}
+
+function setShowcaseFrame(i) {
+  const sc = showcase.active;
+  if (!sc) return;
+  showcase.frame = ((i % sc.frames) + sc.frames) % sc.frames;
+  const im = showcase.images[showcase.frame];
+  if (im && im.complete) showcaseImg.src = im.src;
+}
+
+mount('showGrid', SHOWCASES, (s) => el(
+  `<button class="show-card">
+     <img class="show-card__thumb" src="${showcaseSrc(s, 0)}" alt="" loading="lazy" draggable="false"/>
+     <span><span class="show-card__name">${s.name}</span><br/><span class="show-card__meta">${s.desc}</span></span>
+     <span class="show-card__badge">360°</span>
+   </button>`
+), () => {}, null);
+// mount() handles active-state styling; attach open handlers with card refs
+document.querySelectorAll('#showGrid .show-card').forEach((cardEl, idx) => {
+  cardEl.addEventListener('click', () => openShowcase(SHOWCASES[idx], cardEl));
+});
+
+document.getElementById('showcaseClose').addEventListener('click', closeShowcase);
+
+// drag to rotate (pointer events cover mouse + touch)
+{
+  let dragging = false, startX = 0, startFrame = 0;
+  showcaseEl.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('.showcase__close')) return; // don't capture the close button's click
+    dragging = true; startX = e.clientX; startFrame = showcase.frame;
+    showcase.spin = false;
+    showcaseEl.classList.add('is-dragging');
+    showcaseEl.setPointerCapture(e.pointerId);
+  });
+  showcaseEl.addEventListener('pointermove', (e) => {
+    if (!dragging || !showcase.active) return;
+    const perFrame = showcaseEl.clientWidth / showcase.active.frames / 1.6;
+    setShowcaseFrame(startFrame + Math.round((e.clientX - startX) / perFrame));
+  });
+  const end = () => {
+    dragging = false;
+    showcaseEl.classList.remove('is-dragging');
+    setTimeout(() => { if (!dragging) showcase.spin = true; }, 2200);
+  };
+  showcaseEl.addEventListener('pointerup', end);
+  showcaseEl.addEventListener('pointercancel', end);
+}
+
 // ── Tabs ───────────────────────────────────────────────────────
 document.querySelectorAll('.panel__tab').forEach((tab) => {
   tab.addEventListener('click', () => {
@@ -540,6 +624,12 @@ function animate() {
 
   // dais ring pulse
   ring.material.opacity = (state.env !== 'studio' ? 0.4 : 0.18) + Math.sin(now * 0.002) * 0.12;
+
+  // 360° showcase idle spin
+  if (showcase.active && showcase.spin && now - showcase.lastSpin > 110) {
+    showcase.lastSpin = now;
+    setShowcaseFrame(showcase.frame + 1);
+  }
 
   renderer.render(scene, camera);
 

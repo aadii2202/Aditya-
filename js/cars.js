@@ -83,6 +83,13 @@ export const OPTIONS = [
   { id: 'chrome',  name: 'Chrome Delete',    price: 600 },
 ];
 
+// Real-footage 360° showcases (frame sequences with removed backgrounds)
+export const SHOWCASES = [
+  { id: 'taycan',   name: 'Taycan Electric',   desc: 'Electric blue · studio orbit', dir: 'assets/showcase/taycan',   frames: 36 },
+  { id: 'panamera', name: 'Panamera Grand',    desc: 'Executive grey · city set',    dir: 'assets/showcase/panamera', frames: 36 },
+  { id: 'coastal',  name: 'Carrera Coastal',   desc: 'Guards red · coastal run',     dir: 'assets/showcase/coastal',  frames: 36 },
+];
+
 export const ENVIRONMENTS = [
   { id: 'showroom', name: 'Showroom',   bgTop: 0x11141d, bgBot: 0x05060a, floor: 0x0c0e14, fog: 0x05060a, key: 0xffffff, keyInt: 2.6, amb: 0x8899bb, ambInt: 0.5, envInt: 0.45, css: 'linear-gradient(160deg,#1a1e2c,#05060a)' },
   { id: 'studio',   name: 'Studio',     bgTop: 0xe9ebef, bgBot: 0xb9bec9, floor: 0xd6d9df, fog: 0xc4c8d1, key: 0xffffff, keyInt: 3.2, amb: 0xffffff, ambInt: 0.9, envInt: 1.0,  css: 'linear-gradient(160deg,#f2f3f6,#b9bec9)' },
