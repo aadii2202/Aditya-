@@ -1,0 +1,10 @@
+{
+  "name": "aurion-configurator",
+  "version": "1.0.0",
+  "description": "Aurion Motors — real-time 3D car configurator with cinematic animations",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "license": "MIT"
+}

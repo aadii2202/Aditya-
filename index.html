@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AURION — Design Your Drive</title>
+  <meta name="description" content="Aurion Motors — configure your dream car in real-time 3D." />
+  <link rel="preload" href="vendor/three.module.js" as="script" crossorigin />
+  <link rel="stylesheet" href="css/style.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three.module.js",
+        "three/addons/controls/OrbitControls.js": "./vendor/OrbitControls.js",
+        "three/addons/geometries/RoundedBoxGeometry.js": "./vendor/RoundedBoxGeometry.js",
+        "three/addons/environments/RoomEnvironment.js": "./vendor/RoomEnvironment.js"
+      }
+    }
+  </script>
+</head>
+<body>
+
+  <!-- ══════════════ NAV ══════════════ -->
+  <header class="nav" id="nav">
+    <a class="nav__logo" href="#hero">AURI<span>O</span>N</a>
+    <nav class="nav__links" id="navLinks">
+      <a href="#hero">Home</a>
+      <a href="#configurator">Configurator</a>
+      <a href="#gallery">Gallery</a>
+      <a href="#specs">Performance</a>
+    </nav>
+    <a href="#configurator" class="btn btn--sm btn--primary nav__cta">Build Yours</a>
+    <button class="nav__burger" id="navBurger" aria-label="Menu"><span></span><span></span><span></span></button>
+  </header>
+
+  <!-- ══════════════ HERO ══════════════ -->
+  <section class="hero" id="hero">
+    <canvas id="heroCanvas" class="hero__canvas" aria-hidden="true"></canvas>
+    <div class="hero__vignette" aria-hidden="true"></div>
+    <div class="hero__content">
+      <p class="hero__kicker reveal-line"><span>THE FUTURE OF DRIVING</span></p>
+      <h1 class="hero__title">
+        <span class="reveal-line"><span>SCULPTED BY</span></span>
+        <span class="reveal-line"><span class="hero__title-accent">LIGHT & MOTION</span></span>
+      </h1>
+      <p class="hero__sub reveal-line"><span>Configure every curve, colour and detail of your Aurion — rendered live in true 3D.</span></p>
+      <div class="hero__actions">
+        <a href="#configurator" class="btn btn--primary btn--glow">Start Configuring</a>
+        <a href="#gallery" class="btn btn--ghost">Explore Gallery</a>
+      </div>
+    </div>
+    <a href="#configurator" class="hero__scroll" aria-label="Scroll down">
+      <span class="hero__scroll-dot"></span>
+    </a>
+  </section>
+
+  <!-- ══════════════ CONFIGURATOR ══════════════ -->
+  <section class="config" id="configurator">
+    <div class="section-head reveal">
+      <p class="section-head__kicker">REAL-TIME 3D STUDIO</p>
+      <h2>Build Your <span class="accent-text">Aurion</span></h2>
+      <p class="section-head__sub">Every choice updates the live 3D model instantly — no dummy previews, what you see is what you drive.</p>
+    </div>
+
+    <div class="config__layout">
+      <!-- 3D viewport -->
+      <div class="config__stage reveal">
+        <canvas id="configCanvas"></canvas>
+        <div class="config__stage-loading" id="stageLoading"><div class="spinner"></div><p>Preparing studio…</p></div>
+
+        <div class="config__stage-hud">
+          <div class="hud__badge" id="hudModelName">Velocity GT</div>
+          <div class="hud__views" role="group" aria-label="Camera angles">
+            <button class="hud__view is-active" data-view="beauty" title="Beauty shot">◆</button>
+            <button class="hud__view" data-view="front" title="Front">F</button>
+            <button class="hud__view" data-view="side" title="Side">S</button>
+            <button class="hud__view" data-view="rear" title="Rear">R</button>
+            <button class="hud__view" data-view="top" title="Top">T</button>
+          </div>
+        </div>
+
+        <!-- 360° real-footage overlay -->
+        <div class="showcase" id="showcase" hidden>
+          <img id="showcaseImg" alt="360 degree car preview" draggable="false" />
+          <div class="showcase__hint">⟲ drag to rotate</div>
+          <button class="showcase__close" id="showcaseClose">✕ Back to 3D</button>
+        </div>
+
+        <div class="config__stage-toolbar">
+          <button class="tool-btn is-active" id="btnAutoRotate" title="Auto-rotate">⟳ <span>Rotate</span></button>
+          <button class="tool-btn" id="btnMotion" title="Motion mode">≋ <span>Motion</span></button>
+          <button class="tool-btn" id="btnLights" title="Headlights">☀ <span>Lights</span></button>
+          <button class="tool-btn" id="btnSnapshot" title="Save a PNG snapshot">📷 <span>Snapshot</span></button>
+        </div>
+      </div>
+
+      <!-- Control panel -->
+      <aside class="config__panel">
+        <div class="panel__tabs" role="tablist">
+          <button class="panel__tab is-active" data-tab="model">Model</button>
+          <button class="panel__tab" data-tab="paint">Paint</button>
+          <button class="panel__tab" data-tab="wheels">Wheels</button>
+          <button class="panel__tab" data-tab="extras">Extras</button>
+          <button class="panel__tab" data-tab="scene">Scene</button>
+          <button class="panel__tab" data-tab="showcase">360°</button>
+        </div>
+
+        <div class="panel__body">
+          <!-- MODEL -->
+          <div class="panel__page is-active" data-page="model">
+            <h3 class="panel__label">Choose your vehicle</h3>
+            <div class="model-grid" id="modelGrid"></div>
+          </div>
+
+          <!-- PAINT -->
+          <div class="panel__page" data-page="paint">
+            <h3 class="panel__label">Paint colour</h3>
+            <div class="swatch-grid" id="paintGrid"></div>
+            <h3 class="panel__label">Finish</h3>
+            <div class="chip-row" id="finishRow"></div>
+            <h3 class="panel__label">Accent trim</h3>
+            <div class="swatch-grid swatch-grid--sm" id="trimGrid"></div>
+          </div>
+
+          <!-- WHEELS -->
+          <div class="panel__page" data-page="wheels">
+            <h3 class="panel__label">Wheel design</h3>
+            <div class="chip-col" id="wheelGrid"></div>
+            <h3 class="panel__label">Rim colour</h3>
+            <div class="chip-row" id="rimRow"></div>
+          </div>
+
+          <!-- EXTRAS -->
+          <div class="panel__page" data-page="extras">
+            <h3 class="panel__label">Options</h3>
+            <div class="opt-list" id="optList"></div>
+            <h3 class="panel__label">Window tint</h3>
+            <div class="chip-row" id="tintRow"></div>
+            <h3 class="panel__label">Underglow</h3>
+            <div class="chip-row" id="glowRow"></div>
+          </div>
+
+          <!-- SCENE -->
+          <div class="panel__page" data-page="scene">
+            <h3 class="panel__label">Environment</h3>
+            <div class="env-grid" id="envGrid"></div>
+          </div>
+
+          <!-- 360° SHOWCASE -->
+          <div class="panel__page" data-page="showcase">
+            <h3 class="panel__label">Real-footage 360° previews</h3>
+            <p class="panel__hint">Cinematic captures with the background removed — drag in the viewport to rotate. Preview only, doesn't change your build.</p>
+            <div class="show-grid" id="showGrid"></div>
+          </div>
+        </div>
+
+        <!-- Price bar -->
+        <div class="panel__price">
+          <div>
+            <p class="panel__price-label">Your configuration</p>
+            <p class="panel__price-value" id="priceValue">$0</p>
+          </div>
+          <button class="btn btn--primary btn--sm" id="btnSummary">Summary</button>
+        </div>
+      </aside>
+    </div>
+
+    <!-- Summary modal -->
+    <div class="modal" id="summaryModal" aria-hidden="true">
+      <div class="modal__backdrop" data-close></div>
+      <div class="modal__card">
+        <button class="modal__close" data-close aria-label="Close">✕</button>
+        <h3>Your <span class="accent-text">Aurion</span></h3>
+        <ul class="modal__list" id="summaryList"></ul>
+        <p class="modal__total">Total <strong id="summaryTotal">$0</strong></p>
+        <button class="btn btn--primary" data-close>Looks Perfect</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════ GALLERY ══════════════ -->
+  <section class="gallery" id="gallery">
+    <div class="section-head reveal">
+      <p class="section-head__kicker">THE COLLECTION</p>
+      <h2>Captured in <span class="accent-text">Motion</span></h2>
+    </div>
+    <div class="gallery__grid">
+      <figure class="gallery__item reveal tilt" data-fallback="Hybrid Hypercar · Night Circuit">
+        <img src="assets/images/hero-hybrid-night.jpg" alt="Futuristic hybrid race car at night" loading="lazy" />
+        <figcaption>Hybrid Hypercar<span>Night Circuit</span></figcaption>
+      </figure>
+      <figure class="gallery__item reveal tilt" data-fallback="Velocity GT · Dusk Run">
+        <img src="assets/images/gallery-racing-dusk.jpg" alt="Dynamic racing car in dusk movement" loading="lazy" />
+        <figcaption>Velocity GT<span>Dusk Run</span></figcaption>
+      </figure>
+      <figure class="gallery__item reveal tilt" data-fallback="Electric EON · Urban Circuit">
+        <img src="assets/images/gallery-electric-urban.jpg" alt="Sleek electric race car in urban circuit" loading="lazy" />
+        <figcaption>Electric EON<span>Urban Circuit</span></figcaption>
+      </figure>
+      <figure class="gallery__item reveal tilt" data-fallback="Endurance R · Midnight Stint">
+        <img src="assets/images/gallery-endurance-night.jpg" alt="Endurance race car at night" loading="lazy" />
+        <figcaption>Endurance R<span>Midnight Stint</span></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ══════════════ SPECS ══════════════ -->
+  <section class="specs" id="specs">
+    <div class="section-head reveal">
+      <p class="section-head__kicker">ENGINEERED WITHOUT COMPROMISE</p>
+      <h2>Performance in <span class="accent-text">Numbers</span></h2>
+    </div>
+    <div class="specs__grid">
+      <div class="spec reveal"><p class="spec__num"><span class="counter" data-target="1020">0</span><em>hp</em></p><p class="spec__label">Peak output, tri-motor AWD</p></div>
+      <div class="spec reveal"><p class="spec__num"><span class="counter" data-target="2.1" data-decimals="1">0</span><em>s</em></p><p class="spec__label">0–100 km/h launch</p></div>
+      <div class="spec reveal"><p class="spec__num"><span class="counter" data-target="640">0</span><em>km</em></p><p class="spec__label">Range on a single charge</p></div>
+      <div class="spec reveal"><p class="spec__num"><span class="counter" data-target="350">0</span><em>km/h</em></p><p class="spec__label">Electronically limited top speed</p></div>
+    </div>
+  </section>
+
+  <!-- ══════════════ FOOTER ══════════════ -->
+  <footer class="footer">
+    <a class="nav__logo" href="#hero">AURI<span>O</span>N</a>
+    <p>Designed in real-time 3D · Built with Three.js</p>
+    <p class="footer__fine">© 2026 Aurion Motors. A concept experience.</p>
+  </footer>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
