@@ -112,6 +112,27 @@ def detect_rules(rect_bgr, mask, box_bottom):
     return grid, margin_x
 
 
+def trace_rules(darkm, grid):
+    """Follow each rule's real (slightly curved) path; return per-rule dy arrays."""
+    n = len(grid)
+    xs_fit = np.arange(RW, dtype=np.float32)
+    dys = np.zeros((n, RW), dtype=np.float32)
+    for i, y0 in enumerate(grid):
+        pts_x, pts_y = [], []
+        for xc in range(70, RW - 60, 60):
+            band = darkm[max(0, y0 - 14): y0 + 15, xc: xc + 60]
+            prof = band.mean(axis=1)
+            j = int(np.argmax(prof))
+            if prof[j] > 0.03:
+                pts_x.append(xc + 30)
+                pts_y.append(max(0, y0 - 14) + j)
+        if len(pts_x) >= 8:
+            coef = np.polyfit(np.array(pts_x), np.array(pts_y), 2)
+            dys[i] = np.polyval(coef, xs_fit) - y0
+            dys[i] = np.clip(dys[i], -16, 16)
+    return dys
+
+
 def swap_page(orig_path, txt_path, num, out_path, debug=False):
     img = cv2.imread(orig_path)
     quad = find_paper_quad(img)
@@ -138,6 +159,9 @@ def swap_page(orig_path, txt_path, num, out_path, debug=False):
     _, _, box_left, _, _ = find_box_band(norm, raw_ink)
     if box_left is not None and RW * 0.08 < box_left < RW * 0.35:
         margin_x = box_left
+    darkm = np.clip(1.0 - norm, 0, 1)
+    darkm[ink_only > 0] = 0
+    rule_dys = trace_rules(darkm, grid)
 
     dark = (norm < 0.88).astype(np.uint8) * 255
     m = dark | ink_mask(rect)
@@ -176,8 +200,11 @@ def swap_page(orig_path, txt_path, num, out_path, debug=False):
     # redraw ruled lines + margin line (erased with the ink) as a multiply layer,
     # so they dim naturally with the photo's lighting
     rl = np.full((RH, RW, 3), 255, np.uint8)
-    for y in grid:
-        cv2.line(rl, (58, y), (RW - 42, y), (206, 202, 200), 3, cv2.LINE_AA)
+    for i, y in enumerate(grid):
+        xs = np.arange(58, RW - 42, 16)
+        ys = (y + rule_dys[i][xs]).astype(np.int32)
+        pts = np.stack([xs, ys], axis=1).reshape(-1, 1, 2)
+        cv2.polylines(rl, [pts], False, (206, 202, 200), 3, cv2.LINE_AA)
     cv2.line(rl, (margin_x, box_bot + 25), (margin_x, RH - 40), (196, 192, 192), 3, cv2.LINE_AA)
     clean = np.clip(clean.astype(np.float32) * rl.astype(np.float32) / 255.0, 0, 255).astype(np.uint8)
     if os.environ.get("SWAP_DEBUG"):
@@ -194,7 +221,26 @@ def swap_page(orig_path, txt_path, num, out_path, debug=False):
     rule_ys = [y // 2 for y in grid]
     layer = render.render_layer(num, txt_path, rule_ys, margin_x // 2)
     layer = layer.resize((RW, RH), Image.BICUBIC)
-    lay = np.asarray(layer, dtype=np.float32)[:, :, ::-1]  # RGB->BGR
+    lay = np.asarray(layer, dtype=np.float32)[:, :, ::-1].copy()  # RGB->BGR
+
+    # bend the writing to follow the real rule curves
+    n = len(grid)
+    g = max(1.0, (grid[-1] - grid[0]) / max(1, n - 1))
+    yy = np.arange(RH, dtype=np.float32)
+    t = np.clip((yy - grid[0]) / g, 0, n - 1.001)
+    i0 = np.floor(t).astype(np.int32)
+    fr = (t - i0)[:, None]
+    dy_full = rule_dys[i0] * (1 - fr) + rule_dys[np.minimum(i0 + 1, n - 1)] * fr
+    map_x = np.tile(np.arange(RW, dtype=np.float32), (RH, 1))
+    map_y = yy[:, None] - dy_full
+    lay = cv2.remap(lay, map_x, map_y.astype(np.float32), cv2.INTER_LINEAR,
+                    borderMode=cv2.BORDER_CONSTANT, borderValue=(255, 255, 255))
+
+    # pen pressure: low-frequency density variation along the strokes
+    rng2 = np.random.default_rng(4000 + num)
+    low = cv2.resize(rng2.uniform(0.68, 1.06, (RH // 96, RW // 96)).astype(np.float32),
+                     (RW, RH), interpolation=cv2.INTER_CUBIC)
+    lay = 255.0 - (255.0 - lay) * np.clip(low, 0.6, 1.05)[..., None]
 
     out_rect = np.clip(clean.astype(np.float32) * lay / 255.0, 0, 255).astype(np.uint8)
 
@@ -207,6 +253,10 @@ def swap_page(orig_path, txt_path, num, out_path, debug=False):
     change = cv2.dilate(change, np.ones((7, 7), np.uint8), iterations=1)
     # never touch anything outside the paper interior
     change[:25, :] = 0; change[-25:, :] = 0; change[:, :25] = 0; change[:, -25:] = 0
+    # matched grain so retouched patches aren't smoother than real paper
+    grain = rng2.normal(0, 2.2, out_rect.shape).astype(np.float32)
+    cf = (change > 0).astype(np.float32)
+    out_rect = np.clip(out_rect.astype(np.float32) + grain * cf[..., None], 0, 255).astype(np.uint8)
 
     Hinv = np.linalg.inv(Hm)
     back = cv2.warpPerspective(out_rect, Hinv, (img.shape[1], img.shape[0]),
