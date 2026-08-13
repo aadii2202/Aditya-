@@ -1,0 +1,17 @@
+P|iii.|General : Patients come for general checkup and medicines.
+
+P|Ques 3 ->|Explain the Causes, classification, reporting and prevention of ADR.
+
+P|Ans ->|Patient Related factors : Age, Pediatric, renal, hepatic, genetic and pregnancy.
+
+P|->|Drug-related Factors : narrow therapeutic index, PolyPharmacy, high dosage, Intrinsic toxicity.
+
+P|->|Systemic / Environmental Factors : medication error, miscommunication during handoff, use of shelf-medication in minor ailments.
+
+P|->|Availability of drugs without prescription.
+
+P|*|Classification ->
+P|i.|Predictable : reactions that are an exaggeration of the drug's known primary Pharmacological action occuring at normal therapeutic doses.
+I|1|eg -> Hypoglycemia by insulin.
+P|a.|Excessive Pharmacological effect
+P|b.|Side effect.

@@ -1,0 +1,20 @@
+P|b.|Mention Potential drug Interaction.
+P|Ans ->|Aspirin and diclofenac increase risk of GIT bleeding, ulceration and renal toxicity.
+
+P|->|Diclofenac Cause sodium and water retention antagonizing blood - pressure lowering efficacy of antihypertensive drug Amlodipine.
+
+P|->|Metformin and glimerpiride Cause additive effect in hypoglycemic reaction.
+
+P|C.|Suggest Pharmacist Interventions.
+P|Ans ->|i. Inform Physician about the ADRs.
+P|ii.|reviewing the need for diclofenac particularly with diclofenac.
+P|iii.|Blood glucose monitoring.
+
+P|d.|Recommend Patient Counselling.
+P|Ans ->|educate Patients on early Sign of hypoglycemia and gastric Irritation.
+P|->|Advise the patient to avoid Self-medication
+P|->|Take medicines exactly as prescribed.
+P|e.|Explain how these adverse events Can be prevented.
+P|Ans ->|Conducting thorough medication history to flag Contraindications.
+P|->|Eliminating unnecessary Concurrent use of polypharmacy.
+P|->|Regular routine Clinical monitoring.

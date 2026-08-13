@@ -1,0 +1,12 @@
+C|PHARMACY PRACTICE [BP703T]
+C|ASSIGNMENT-1
+
+C|PART-A
+P|Ques 1 ->|Define Hospital Pharmacy.
+P|Ans ->|Hospital Pharmacy is a specialized department within a hospital under the direction of a professionally qualified Pharmacist, which comprises the art, practice and profession of choosing, preparing, storing, compounding and dispensing medicines and medical devices, advising healthcare professionals and patients.
+
+P|Ques 2 ->|Differentiate between inpatient and outpatient pharmacy.
+
+P|Ans ->|Inpatient : Serves patients admitted to hospital wards, using unit-dose or floor stock systems Coordinated with nurses and Physicians.
+
+I|1|Out-Patient : Serves ambulatory (walking) Patient who visit the hospital and return home, dispensing direct Prescription with patient Counselling.

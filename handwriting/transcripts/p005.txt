@@ -1,0 +1,16 @@
+P|ii.|Complete floor Stock : drugs are stored at the nursing station and administered by nurses according to order of physician.
+I|1|adv -> ready availability of drug.
+I|2|-> Reduce number of Pharmacy personnel
+
+P|iii.|Combination : Maintains limited inventory of emergency and routine drugs directly on hospital ward while requiring Individual Pharmacist-reviewed Prescription.
+I|1|Adv. -> Provide immediate access.
+I|2|-> reduce administrative burden.
+
+P|iv.|Unit Dose Dispensing Method : UD medications are those which are ordered or dispensed In single dose, ready-to-administered packages, delivered in 24 hour carts Containing individual Patient bins.
+I|1|adv. -> better health Services.
+I|2|-> Reduce medication errors.
+
+C|OUTPATIENTS.
+P|i.|Emergency : 24 hours services are given who requires immediate care.
+
+P|ii.|Referred : for Patients referred to the hospital for a specific purpose due to lack of facilities.

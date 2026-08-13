@@ -1,0 +1,15 @@
+T|Supervisor|Inpatient dispensing Supervisor|Outpatient dispensing|Clinical Pharmacy|Manufactory and QC.
+
+I|1|Functions ->
+P|i.|Provide specifications for the purchase of drugs, Chemicals, biologicals etc.
+P|ii.|Proper storing of drug.
+P|iii.|Manufacturing and distribution of medicaments.
+P|iv.|Filling a labelling of drug Containers.
+P|v.|Management of stores.
+
+P|Ques 2 ->|Discuss the various drug distribution System Practiced in hospital.
+T|Inpatient|Individual Prescription Order System.|Complete Floor Stock|Combination|UDDM
+
+P|i.|Individual Prescription : Prescription Copy is Sent to the pharmacist, dispensing a Supply Specific to that patient.
+I|1|adv. -> directly reviewed by Pharmacist
+I|2|-> errors Could be avoided.
