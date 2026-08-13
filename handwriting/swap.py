@@ -198,16 +198,23 @@ def swap_page(orig_path, txt_path, num, out_path, debug=False):
 
     out_rect = np.clip(clean.astype(np.float32) * lay / 255.0, 0, 255).astype(np.uint8)
 
-    # warp back into the original photo
+    # warp back into the original photo, but replace ONLY the changed pixels
+    # (erased ink, redrawn rules, new ink) -- everything else stays the exact
+    # original photo, so there is no seam or texture shift
+    change = (m > 0).astype(np.uint8) * 255
+    change |= (rl.min(axis=2) < 250).astype(np.uint8) * 255
+    change |= (lay.min(axis=2) < 250).astype(np.uint8) * 255
+    change = cv2.dilate(change, np.ones((7, 7), np.uint8), iterations=1)
+    # never touch anything outside the paper interior
+    change[:25, :] = 0; change[-25:, :] = 0; change[:, :25] = 0; change[:, -25:] = 0
+
     Hinv = np.linalg.inv(Hm)
     back = cv2.warpPerspective(out_rect, Hinv, (img.shape[1], img.shape[0]),
                                flags=cv2.INTER_CUBIC)
-    pmask = cv2.warpPerspective(np.full((RH, RW), 255, np.uint8), Hinv,
-                                (img.shape[1], img.shape[0]))
-    pmask = cv2.erode(pmask, np.ones((9, 9), np.uint8))
-    pmask = cv2.GaussianBlur(pmask, (11, 11), 0).astype(np.float32) / 255.0
-    final = (img.astype(np.float32) * (1 - pmask[..., None]) +
-             back.astype(np.float32) * pmask[..., None]).astype(np.uint8)
+    cmask = cv2.warpPerspective(change, Hinv, (img.shape[1], img.shape[0]))
+    cmask = cv2.GaussianBlur(cmask, (7, 7), 0).astype(np.float32) / 255.0
+    final = (img.astype(np.float32) * (1 - cmask[..., None]) +
+             back.astype(np.float32) * cmask[..., None]).astype(np.uint8)
     cv2.imwrite(out_path, final, [cv2.IMWRITE_JPEG_QUALITY, 90])
     print(f"swapped page {num}: rules={len(grid)} grid0={grid[0]} box=({box_top},{box_bot}) gap~{grid[1]-grid[0] if len(grid)>1 else 0} margin={margin_x}")
 
