@@ -1,6 +1,6 @@
 P|iii.|General : Patients come for general checkup and medicines.
 
-P|Ques 3 ->|Explain the Causes, classification, reporting and prevention of ADR.
+@P|Ques 3 ->|Explain the Causes, classification, reporting and prevention of ADR.
 
 P|Ans ->|Patient Related factors : Age, Pediatric, renal, hepatic, genetic and pregnancy.
 

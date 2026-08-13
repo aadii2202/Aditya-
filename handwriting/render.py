@@ -8,18 +8,19 @@ import sys
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-FONT_PATH = os.path.join(BASE, "fonts", "Caveat.ttf")
+FONT_PATH = os.path.join(BASE, "fonts", "LaBelleAurore.ttf")
 
 W, H = 1240, 1754
-RULE_TOP = 240          # y of first writing rule
+RULE_TOP = 200          # y of first writing rule
 RULE_BOT = 1700
-MARGIN_X = 175          # vertical margin line
-LEFT_EDGE = 55          # where margin labels start
-BODY_X = 235            # default body start
-RIGHT_X = 1165          # right edge of writing
-INK = (30, 48, 145)     # blue ballpoint
+MARGIN_X = 170          # vertical margin line
+LEFT_EDGE = 50          # where margin labels start
+BODY_X = 225            # default body start
+RIGHT_X = 1170          # right edge of writing
+INK = (32, 44, 148)     # blue ballpoint
+INK_BLACK = (44, 44, 52)  # black ballpoint
 
-FONT_SIZE = 44
+FONT_SIZE = 46
 
 _font_cache = {}
 
@@ -32,34 +33,25 @@ def get_font(size):
 
 
 def paper_background(rng, rule_gap):
-    img = Image.new("RGB", (W, H), (248, 246, 242))
-    px = img.load()
+    img = Image.new("RGB", (W, H), (250, 249, 246))
     # subtle paper noise
     noise = Image.effect_noise((W // 4, H // 4), 12).resize((W, H))
-    img = Image.composite(img, Image.new("RGB", (W, H), (238, 236, 230)), noise.point(lambda v: 255 - (255 - v) // 3))
+    img = Image.composite(img, Image.new("RGB", (W, H), (241, 240, 236)), noise.point(lambda v: 255 - (255 - v) // 3))
     d = ImageDraw.Draw(img)
     # ruled lines
     y = RULE_TOP
     while y <= RULE_BOT:
         shade = rng.randint(0, 8)
-        d.line([(40, y), (W - 45, y)], fill=(196 + shade, 199 + shade, 208 + shade), width=2)
+        d.line([(0, y), (W, y)], fill=(178 + shade, 182 + shade, 192 + shade), width=2)
         y += rule_gap
-    # vertical margin line
-    d.line([(MARGIN_X, RULE_TOP - rule_gap), (MARGIN_X, RULE_BOT)], fill=(198, 200, 210), width=2)
-    # header box
-    try:
-        hf = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 18)
-    except OSError:
-        hf = ImageFont.load_default()
-    bx0, by0, bx1, by1 = 190, 120, 1090, 178
-    d.rounded_rectangle([bx0, by0, bx1, by1], radius=6, outline=(120, 122, 130), width=2)
-    d.text((bx0 + 18, by0 + 20), "Topic", font=hf, fill=(90, 92, 100))
-    d.line([(bx0 + 75, by1 - 16), (bx1 - 300, by1 - 16)], fill=(150, 152, 160), width=1)
-    d.text((bx1 - 280, by0 + 20), "Date", font=hf, fill=(90, 92, 100))
-    d.line([(bx1 - 230, by1 - 16), (bx1 - 20, by1 - 16)], fill=(150, 152, 160), width=1)
-    # punch holes
-    for hy in (H * 0.30, H * 0.62):
-        d.ellipse([28, hy - 9, 46, hy + 9], fill=(225, 223, 218), outline=(180, 178, 172), width=2)
+    # double pink horizontal line at top
+    ty = RULE_TOP - int(rule_gap * 1.6)
+    pink = (222, 120, 140)
+    d.line([(0, ty), (W, ty)], fill=pink, width=2)
+    d.line([(0, ty + 9), (W, ty + 9)], fill=pink, width=2)
+    # double pink vertical margin line
+    d.line([(MARGIN_X, 0), (MARGIN_X, H)], fill=pink, width=2)
+    d.line([(MARGIN_X + 9, 0), (MARGIN_X + 9, H)], fill=pink, width=2)
     return img
 
 
@@ -73,6 +65,7 @@ class Page:
         self.slant = self.rng.uniform(-0.4, 0.4)  # degrees, whole-page slant tendency
         self.last_node_center = None
         self.last_node_bottom = None
+        self.pen = "blue"
 
     def baseline(self, idx):
         return RULE_TOP + idx * self.rule_gap - 5
@@ -83,7 +76,8 @@ class Page:
 
     def ink(self):
         r = self.rng
-        return (INK[0] + r.randint(-8, 10), INK[1] + r.randint(-8, 10), INK[2] + r.randint(-14, 10))
+        base = INK_BLACK if self.pen == "black" else INK
+        return (base[0] + r.randint(-8, 10), base[1] + r.randint(-8, 10), base[2] + r.randint(-14, 10))
 
     def draw_char(self, ch, x, base_y, size):
         """Draw one character with jitter; return advance width."""
@@ -134,15 +128,32 @@ class Page:
         font = get_font(size)
         if word == "->":
             return 52
-        return sum(font.getlength(ch) for ch in word)
+        return font.getlength(word)
 
     def draw_word(self, word, x, base_y, size):
+        """Draw a whole word in one stroke so cursive letters stay joined."""
         if word == "->":
             return self.draw_arrow(x, base_y)
-        cx = x
-        for ch in word:
-            cx += self.draw_char(ch, cx, base_y + self.rng.uniform(-1.5, 1.5), size)
-        return cx - x
+        r = self.rng
+        sz = size * r.uniform(0.96, 1.05)
+        font = get_font(sz)
+        adv = font.getlength(word)
+        if adv <= 0:
+            return size * 0.3
+        ascent, descent = font.getmetrics()
+        pad = 26
+        tile = Image.new("L", (int(adv) + pad * 2 + 8, ascent + descent + pad * 2), 0)
+        td = ImageDraw.Draw(tile)
+        td.text((pad, pad), word, font=font, fill=255)
+        rot = self.slant + r.uniform(-1.6, 1.6)
+        tile = tile.rotate(rot, resample=Image.BICUBIC, expand=False,
+                           center=(pad, pad + ascent))
+        tile = tile.filter(ImageFilter.GaussianBlur(0.4))
+        yy = int(base_y - ascent - pad + r.uniform(-2.0, 2.0))
+        xx = int(x - pad + r.uniform(-1.0, 1.0))
+        color = Image.new("RGB", tile.size, self.ink())
+        self.img.paste(color, (xx, yy), tile.point(lambda v: min(255, int(v * 1.2))))
+        return adv * r.uniform(0.98, 1.02)
 
     def wrap(self, text, first_x, cont_x, size=FONT_SIZE):
         """Yield (x, [words]) lines wrapped to RIGHT_X."""
@@ -295,7 +306,7 @@ class Page:
 def estimate_lines(page, entries):
     """Count rule lines a transcript would need (approx, by dry-run wrap)."""
     count = 0
-    for kind, a, b in entries:
+    for kind, a, b, pen in entries:
         if kind == "blank":
             count += 1
         elif kind == "tree":
@@ -312,30 +323,34 @@ def parse(path):
     for raw in open(path, encoding="utf-8"):
         line = raw.rstrip("\n")
         if not line.strip():
-            entries.append(("blank", None, None))
+            entries.append(("blank", None, None, "blue"))
             continue
+        pen = "blue"
+        if line.startswith("@"):
+            pen = "black"
+            line = line[1:]
         parts = line.split("|")
         tag = parts[0]
         if tag == "C":
-            entries.append(("center", ("", parts[1], False), None))
+            entries.append(("center", ("", parts[1], False), None, pen))
         elif tag == "CU":
-            entries.append(("center", ("", parts[1], True), None))
+            entries.append(("center", ("", parts[1], True), None, pen))
         elif tag == "U":
-            entries.append(("para", ("", parts[1], BODY_X, BODY_X, True), None))
+            entries.append(("para", ("", parts[1], BODY_X, BODY_X, True), None, pen))
         elif tag == "P":
             label, text = parts[1], "|".join(parts[2:])
-            entries.append(("para", (label, text, BODY_X, BODY_X, False), None))
+            entries.append(("para", (label, text, BODY_X, BODY_X, False), None, pen))
         elif tag == "I":
             depth = int(parts[1])
             text = "|".join(parts[2:])
             x = BODY_X + depth * 55
-            entries.append(("para", ("", text, x, x, False), None))
+            entries.append(("para", ("", text, x, x, False), None, pen))
         elif tag == "T":
-            entries.append(("tree", parts[1], parts[2:]))
+            entries.append(("tree", parts[1], parts[2:], pen))
         elif tag == "VC":
-            entries.append(("vchain", parts[1], None))
+            entries.append(("vchain", parts[1], None, pen))
         elif tag == "F":
-            entries.append(("fan", parts[1:], None))
+            entries.append(("fan", parts[1:], None, pen))
         else:
             raise ValueError(f"bad tag {tag!r} in {path}")
     return entries
@@ -347,7 +362,7 @@ def render_page(num, txt_path, out_path):
         page = Page(num, gap)
         # dry estimate
         need = 0
-        for kind, a, b in entries:
+        for kind, a, b, pen in entries:
             if kind == "blank":
                 need += 1
             elif kind == "tree":
@@ -368,7 +383,8 @@ def render_page(num, txt_path, out_path):
     else:
         print(f"  WARNING p{num}: content overflows even at tightest spacing ({need} lines)")
     page = Page(num, gap)
-    for kind, a, b in entries:
+    for kind, a, b, pen in entries:
+        page.pen = pen
         if kind == "blank":
             page.line_idx += 1
         elif kind == "center":

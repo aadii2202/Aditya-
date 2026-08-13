@@ -5,15 +5,15 @@ P|i.|Take medication history to avoid known allergies and interaction.
 P|ii.|Education patients regarding early warning Signs of toxicity.
 P|iii.|appropriate monitoring required.
 P|iv.|adopting right techniques, doses, route and frequency.
-C|PART-C
-P|Ques 1 ->|65 year old male.
-I|1|Condition -> Diabetes and hypertension, knee pain (recent)
-I|1|Medication -> metformin.
-I|3|glimepiride.
-I|3|Amlodipine
-I|3|Aspirin
-I|3|Diclofenac.
-I|1|ADR -> gastric irritation and hypoglycemia
-P|a.|Identify possible medication-related problems
+@C|PART-C
+@P|Ques 1 ->|65 year old male.
+@I|1|Condition -> Diabetes and hypertension, knee pain (recent)
+@I|1|Medication -> metformin.
+@I|3|glimepiride.
+@I|3|Amlodipine
+@I|3|Aspirin
+@I|3|Diclofenac.
+@I|1|ADR -> gastric irritation and hypoglycemia
+@P|a.|Identify possible medication-related problems
 P|Ans ->|a). gastric irritation -> due to NSAID's Diclofenac and aspirin prescribed which inhibits protective gastric prostaglandins.
 P|->|hypoglycemia -> Due to Sulfonylurea and biguanide Category anti-diabetic drugs glimepiride and metformin leading to low blood glucose.

@@ -10,7 +10,7 @@ P|iv.|Unit Dose Dispensing Method : UD medications are those which are ordered o
 I|1|adv. -> better health Services.
 I|2|-> Reduce medication errors.
 
-C|OUTPATIENTS.
+@C|OUTPATIENTS.
 P|i.|Emergency : 24 hours services are given who requires immediate care.
 
 P|ii.|Referred : for Patients referred to the hospital for a specific purpose due to lack of facilities.

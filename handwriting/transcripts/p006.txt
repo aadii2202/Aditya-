@@ -7,7 +7,7 @@ P|iii.|Manufacturing and distribution of medicaments.
 P|iv.|Filling a labelling of drug Containers.
 P|v.|Management of stores.
 
-P|Ques 2 ->|Discuss the various drug distribution System Practiced in hospital.
+@P|Ques 2 ->|Discuss the various drug distribution System Practiced in hospital.
 T|Inpatient|Individual Prescription Order System.|Complete Floor Stock|Combination|UDDM
 
 P|i.|Individual Prescription : Prescription Copy is Sent to the pharmacist, dispensing a Supply Specific to that patient.
