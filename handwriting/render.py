@@ -8,7 +8,7 @@ import sys
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-FONT_PATH = os.path.join(BASE, "fonts", "LaBelleAurore.ttf")
+FONT_PATH = os.path.join(BASE, "fonts", "Zeyada.ttf")
 
 W, H = 1240, 1754
 RULE_TOP = 200          # y of first writing rule
@@ -20,7 +20,7 @@ RIGHT_X = 1170          # right edge of writing
 INK = (32, 44, 148)     # blue ballpoint
 INK_BLACK = (44, 44, 52)  # black ballpoint
 
-FONT_SIZE = 46
+FONT_SIZE = 50
 
 _font_cache = {}
 
