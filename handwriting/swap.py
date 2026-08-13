@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
-"""Swap handwriting in original scanned photos: erase original ink, draw ours
-aligned to the photo's own ruled lines, keep everything else untouched."""
+"""Swap handwriting in original scanned photos with a fully rebuilt, clean
+paper surface: one set of straight rules, aligned text, uniform texture.
+The photo outside the paper interior (desk, page edges, lighting) stays real.
+"""
 import os
 import sys
 
@@ -12,6 +14,7 @@ import render
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 RW, RH = 2480, 3508          # rectified paper size (2x renderer scale)
+BOX_TOP, BOX_BOT = 100, 370  # printed Topic/Date box band (fixed for this notebook)
 
 
 def order_quad(pts):
@@ -33,70 +36,27 @@ def find_paper_quad(img):
     approx = cv2.approxPolyDP(cnt, 0.02 * peri, True)
     if len(approx) == 4:
         return order_quad(approx)
-    rect = cv2.minAreaRect(cnt)
-    return order_quad(cv2.boxPoints(rect))
+    return order_quad(cv2.boxPoints(cv2.minAreaRect(cnt)))
 
 
 def ink_mask(rect_bgr):
     hsv = cv2.cvtColor(rect_bgr, cv2.COLOR_BGR2HSV)
     h, s, v = cv2.split(hsv)
-    # blue ballpoint only (printed box/rules/logo are gray -> low saturation)
     m = ((h > 85) & (h < 165) & (s > 25) & (v > 10) & (v < 245)).astype(np.uint8) * 255
-    m = cv2.dilate(m, np.ones((7, 7), np.uint8), iterations=2)
-    # never touch the outermost paper border
-    m[:30, :] = 0
-    m[-30:, :] = 0
-    m[:, :30] = 0
-    m[:, -30:] = 0
-    return m
+    return cv2.dilate(m, np.ones((7, 7), np.uint8), iterations=2)
 
 
-def find_box_band(norm, ink):
-    """Locate the printed Topic/Date box: its borders are continuous AND much
-    darker than ruled lines; handwriting (blue ink) is excluded first."""
-    darkv = np.clip(1.0 - norm, 0, 1)
-    darkv[ink > 0] = 0
-    dark = darkv > 0.06
-    x0, x1 = int(RW * 0.12), int(RW * 0.90)
-    frac = dark[:, x0:x1].mean(axis=1)
-    prof = darkv[:, x0:x1].mean(axis=1)
-    lo, hi = int(RH * 0.02), int(RH * 0.22)
-    rows = np.where((frac[lo:hi] > 0.5) & (prof[lo:hi] > 0.07))[0]
-    if len(rows):
-        top = int(rows.min())
-        band = rows[rows - top <= 320]
-        bot = int(band.max())
-        line_rows = [lo + int(r) for r in band]
-        # left/right borders: dark-dense columns within the band rows
-        seg = dark[lo + top: lo + bot + 1, :]
-        colfrac = seg.mean(axis=1 == 2 and 0 or 0)
-        colfrac = seg.mean(axis=0)
-        cand = np.where(colfrac > 0.5)[0]
-        left = int(cand.min()) if len(cand) else None
-        right = int(cand.max()) if len(cand) else None
-        return lo + top, lo + bot, left, right, line_rows
-    return int(RH * 0.05), int(RH * 0.13), None, None, []
-
-
-def detect_rules(rect_bgr, mask, box_bottom):
-    """Return (rule_ys, margin_x) on the rectified image."""
-    gray = cv2.cvtColor(rect_bgr, cv2.COLOR_BGR2GRAY).astype(np.float32)
-    # flatten illumination
-    bg = cv2.GaussianBlur(gray, (0, 0), 45)
-    norm = gray / (bg + 1e-6)
+def detect_rules(norm, mask, box_bottom):
+    """Straight ruling: period + phase from the darkness profile."""
     dark = np.clip(1.0 - norm, 0, 1)
     dark[mask > 0] = 0
     x0, x1 = int(RW * 0.25), int(RW * 0.92)
     prof = dark[:, x0:x1].mean(axis=1)
     prof = cv2.GaussianBlur(prof.reshape(-1, 1), (1, 9), 0).ravel()
-    # period of the ruling via autocorrelation of the darkness profile
     seg = prof[box_bottom + 30: RH - 60].copy()
     seg -= seg.mean()
     ac = np.correlate(seg, seg, mode="full")[len(seg) - 1:]
-    lags = np.arange(len(ac))
-    lo, hi = 70, 130
-    g = float(lo + np.argmax(ac[lo:hi]))
-    # phase: shift that best matches high-profile rows
+    g = float(70 + np.argmax(ac[70:130]))
     best_phase, best_score = 0, -1
     for phase in range(int(g)):
         rows = np.arange(box_bottom + 30 + phase, RH - 60, g).astype(int)
@@ -104,36 +64,15 @@ def detect_rules(rect_bgr, mask, box_bottom):
         if score > best_score:
             best_score, best_phase = score, phase
     grid = list(np.arange(box_bottom + 30 + best_phase, RH - 50, g).astype(int))
-    # margin line: vertical dark column on left
+    # margin line: darkest vertical column on the left
     dark2 = np.clip(1.0 - norm, 0, 1)
     dark2[mask > 0] = 0
-    col = dark2[box_bottom + 60: int(RH * 0.95), int(RW * 0.08): int(RW * 0.35)].mean(axis=0)
-    margin_x = int(RW * 0.08) + int(np.argmax(cv2.GaussianBlur(col.reshape(-1, 1), (1, 7), 0).ravel()))
+    col = dark2[box_bottom + 60: int(RH * 0.95), int(RW * 0.09): int(RW * 0.30)].mean(axis=0)
+    margin_x = int(RW * 0.09) + int(np.argmax(cv2.GaussianBlur(col.reshape(-1, 1), (1, 7), 0).ravel()))
     return grid, margin_x
 
 
-def trace_rules(darkm, grid):
-    """Follow each rule's real (slightly curved) path; return per-rule dy arrays."""
-    n = len(grid)
-    xs_fit = np.arange(RW, dtype=np.float32)
-    dys = np.zeros((n, RW), dtype=np.float32)
-    for i, y0 in enumerate(grid):
-        pts_x, pts_y = [], []
-        for xc in range(70, RW - 60, 60):
-            band = darkm[max(0, y0 - 14): y0 + 15, xc: xc + 60]
-            prof = band.mean(axis=1)
-            j = int(np.argmax(prof))
-            if prof[j] > 0.03:
-                pts_x.append(xc + 30)
-                pts_y.append(max(0, y0 - 14) + j)
-        if len(pts_x) >= 8:
-            coef = np.polyfit(np.array(pts_x), np.array(pts_y), 2)
-            dys[i] = np.polyval(coef, xs_fit) - y0
-            dys[i] = np.clip(dys[i], -16, 16)
-    return dys
-
-
-def swap_page(orig_path, txt_path, num, out_path, debug=False):
+def swap_page(orig_path, txt_path, num, out_path):
     img = cv2.imread(orig_path)
     quad = find_paper_quad(img)
     dst = np.array([[0, 0], [RW, 0], [RW, RH], [0, RH]], dtype=np.float32)
@@ -143,130 +82,88 @@ def swap_page(orig_path, txt_path, num, out_path, debug=False):
     gray = cv2.cvtColor(rect, cv2.COLOR_BGR2GRAY).astype(np.float32)
     bg = cv2.GaussianBlur(gray, (0, 0), 35)
     norm = gray / (bg + 1e-6)
-
-    # detect rules/margin on the ORIGINAL rectified photo, masking only true ink
     sat = cv2.cvtColor(rect, cv2.COLOR_BGR2HSV)[:, :, 1]
-    ink_excl = cv2.dilate(((sat > 25) & (norm < 0.95)).astype(np.uint8) * 255,
-                          np.ones((5, 5), np.uint8), iterations=1)
-    ink_only = ink_mask(rect) | ink_excl
-    # the printed Topic/Date box is at a fixed position on this notebook;
-    # per-page detection is fragile, so use a fixed band
-    box_top, box_bot = 100, 370
-    grid, margin_x = detect_rules(rect, ink_only, box_bot)
-    hsv_ink = cv2.cvtColor(rect, cv2.COLOR_BGR2HSV)
-    hh, ss, vv = cv2.split(hsv_ink)
-    raw_ink = ((hh > 85) & (hh < 165) & (ss > 25) & (vv < 245)).astype(np.uint8) * 255
-    _, _, box_left, _, _ = find_box_band(norm, raw_ink)
-    if box_left is not None and RW * 0.08 < box_left < RW * 0.35:
-        margin_x = box_left
-    darkm = np.clip(1.0 - norm, 0, 1)
-    darkm[ink_only > 0] = 0
-    rule_dys = trace_rules(darkm, grid)
+    ink_only = ink_mask(rect) | cv2.dilate(((sat > 25) & (norm < 0.95)).astype(np.uint8) * 255,
+                                           np.ones((5, 5), np.uint8), iterations=1)
+    grid, margin_x = detect_rules(norm, ink_only, BOX_BOT)
 
-    dark = (norm < 0.88).astype(np.uint8) * 255
-    m = dark | ink_mask(rect)
-    # protect printed things: header box band, punch-hole strip, corner logo, borders
-    b0, b1 = max(0, box_top - 15), box_bot + 15
+    # erase EVERYTHING dark on the paper except the printed box band, punch
+    # holes and the corner logo -- rules and margin will be redrawn cleanly
+    m = ((norm < 0.90).astype(np.uint8) * 255) | ink_mask(rect)
+    b0, b1 = BOX_TOP - 15, BOX_BOT + 15
     m[b0:b1, :] = 0
-    # lower sliver of the band: only the box's bottom border (continuous) or
-    # stray handwriting (broken rows) can be here -- erase the broken rows
-    sub0 = box_top + 180
+    # inside the band's lower part, erase stray handwriting AND faint rule
+    # fragments; keep only rows that are continuous AND print-dark (box border)
+    darkv2 = np.clip(1.0 - norm, 0, 1)
     darkbin = (norm < 0.90)
     x0f, x1f = int(RW * 0.12), int(RW * 0.90)
-    band = darkbin[sub0:b1]
+    band = darkbin[BOX_TOP + 180: b1]
     rowfrac = band[:, x0f:x1f].mean(axis=1)
-    allow = rowfrac < 0.45
-    m[sub0:b1, :] |= (band & allow[:, None]).astype(np.uint8) * 255
-    border_rows = np.where(~allow)[0] + sub0
-    m[:, :55] = 0
+    rowdark = darkv2[BOX_TOP + 180: b1, x0f:x1f].mean(axis=1)
+    keep = (rowfrac >= 0.45) & (rowdark >= 0.09)
+    m[BOX_TOP + 180: b1, :] |= (band & (~keep)[:, None]).astype(np.uint8) * 255
+    border_rows = np.where(keep)[0] + BOX_TOP + 180
     m[RH - 170:, RW - 420:] = 0
     m[:30, :] = 0; m[-30:, :] = 0; m[:, -30:] = 0
-    # find punch holes in the left strip: round, solid dark blobs
+    # punch holes: round solid blobs in the left strip
     hole_boxes = []
     strip = (norm[:, 40:180] < 0.85).astype(np.uint8)
     nlab, lab, stats, cent = cv2.connectedComponentsWithStats(strip)
     for i in range(1, nlab):
         x, y, w, h, area = stats[i]
         if 250 < area < 5000 and w < 120 and h < 120 and area / (w * h + 1e-6) > 0.4:
-            hole_boxes.append((max(0, y - 12), y + h + 12, max(0, 40 + x - 12), 40 + x + w + 12))
+            hole_boxes.append((max(0, y - 5), y + h + 5, max(0, 40 + x - 5), 40 + x + w + 5))
     m = cv2.dilate(m, np.ones((5, 5), np.uint8), iterations=2)
     for y0, y1, x0, x1 in hole_boxes:
         m[y0:y1, x0:x1] = 0
-    # keep the box's bottom border safe from dilation bleed
     for r in border_rows:
         m[max(0, r - 4): r + 5, :] = 0
     clean = cv2.inpaint(rect, m, 7, cv2.INPAINT_TELEA)
 
-    # redraw ruled lines + margin line (erased with the ink) as a multiply layer,
-    # so they dim naturally with the photo's lighting
-    rl = np.full((RH, RW, 3), 255, np.uint8)
-    for i, y in enumerate(grid):
-        xs = np.arange(58, RW - 42, 16)
-        ys = (y + rule_dys[i][xs]).astype(np.int32)
-        pts = np.stack([xs, ys], axis=1).reshape(-1, 1, 2)
-        cv2.polylines(rl, [pts], False, (206, 202, 200), 3, cv2.LINE_AA)
-    cv2.line(rl, (margin_x, box_bot + 25), (margin_x, RH - 40), (196, 192, 192), 3, cv2.LINE_AA)
-    clean = np.clip(clean.astype(np.float32) * rl.astype(np.float32) / 255.0, 0, 255).astype(np.uint8)
-    if os.environ.get("SWAP_DEBUG"):
-        cv2.imwrite(out_path.replace(".jpg", "_clean.jpg"), clean)
-    if debug:
-        dbg = clean.copy()
-        for y in grid:
-            cv2.line(dbg, (0, y), (RW, y), (0, 0, 255), 3)
-        cv2.line(dbg, (margin_x, 0), (margin_x, RH), (0, 255, 0), 3)
-        cv2.line(dbg, (0, box_bot), (RW, box_bot), (255, 0, 0), 5)
-        cv2.imwrite(out_path.replace(".jpg", "_debug.jpg"), dbg)
+    # rebuild a uniform paper surface: smooth away inpaint streaks but keep
+    # the real lighting; keep the printed box, holes and logo crisp
+    paper = cv2.GaussianBlur(clean, (0, 0), 3.0)
+    paper[b0:b1, :] = clean[b0:b1, :]
+    for y0, y1, x0, x1 in hole_boxes:
+        paper[y0:y1, x0:x1] = clean[y0:y1, x0:x1]
+    paper[RH - 170:, RW - 420:] = clean[RH - 170:, RW - 420:]
 
-    # render our writing aligned to the detected rules (renderer works at 1/2 scale)
+    # ONE clean set of straight rules + margin line (multiply keeps lighting)
+    rl = np.full((RH, RW, 3), 255, np.uint8)
+    for y in grid:
+        cv2.line(rl, (45, y), (RW - 40, y), (204, 200, 198), 3, cv2.LINE_AA)
+    cv2.line(rl, (margin_x, BOX_BOT - 20), (margin_x, RH - 40), (194, 190, 190), 3, cv2.LINE_AA)
+    paper = np.clip(paper.astype(np.float32) * rl.astype(np.float32) / 255.0, 0, 255).astype(np.uint8)
+
+    # render the writing aligned exactly on those straight rules
     rule_ys = [y // 2 for y in grid]
     layer = render.render_layer(num, txt_path, rule_ys, margin_x // 2)
     layer = layer.resize((RW, RH), Image.BICUBIC)
-    lay = np.asarray(layer, dtype=np.float32)[:, :, ::-1].copy()  # RGB->BGR
-
-    # bend the writing to follow the real rule curves
-    n = len(grid)
-    g = max(1.0, (grid[-1] - grid[0]) / max(1, n - 1))
-    yy = np.arange(RH, dtype=np.float32)
-    t = np.clip((yy - grid[0]) / g, 0, n - 1.001)
-    i0 = np.floor(t).astype(np.int32)
-    fr = (t - i0)[:, None]
-    dy_full = rule_dys[i0] * (1 - fr) + rule_dys[np.minimum(i0 + 1, n - 1)] * fr
-    map_x = np.tile(np.arange(RW, dtype=np.float32), (RH, 1))
-    map_y = yy[:, None] - dy_full
-    lay = cv2.remap(lay, map_x, map_y.astype(np.float32), cv2.INTER_LINEAR,
-                    borderMode=cv2.BORDER_CONSTANT, borderValue=(255, 255, 255))
-
-    # pen pressure: low-frequency density variation along the strokes
+    lay = np.asarray(layer, dtype=np.float32)[:, :, ::-1].copy()
+    # gentle pen-pressure variation
     rng2 = np.random.default_rng(4000 + num)
-    low = cv2.resize(rng2.uniform(0.68, 1.06, (RH // 96, RW // 96)).astype(np.float32),
+    low = cv2.resize(rng2.uniform(0.75, 1.04, (RH // 96, RW // 96)).astype(np.float32),
                      (RW, RH), interpolation=cv2.INTER_CUBIC)
-    lay = 255.0 - (255.0 - lay) * np.clip(low, 0.6, 1.05)[..., None]
+    lay = 255.0 - (255.0 - lay) * np.clip(low, 0.7, 1.04)[..., None]
 
-    out_rect = np.clip(clean.astype(np.float32) * lay / 255.0, 0, 255).astype(np.uint8)
+    out_rect = np.clip(paper.astype(np.float32) * lay / 255.0, 0, 255).astype(np.uint8)
+    # uniform fine grain over the whole interior so nothing looks smoother
+    grain = rng2.normal(0, 2.0, out_rect.shape).astype(np.float32)
+    out_rect = np.clip(out_rect.astype(np.float32) + grain, 0, 255).astype(np.uint8)
 
-    # warp back into the original photo, but replace ONLY the changed pixels
-    # (erased ink, redrawn rules, new ink) -- everything else stays the exact
-    # original photo, so there is no seam or texture shift
-    change = (m > 0).astype(np.uint8) * 255
-    change |= (rl.min(axis=2) < 250).astype(np.uint8) * 255
-    change |= (lay.min(axis=2) < 250).astype(np.uint8) * 255
-    change = cv2.dilate(change, np.ones((7, 7), np.uint8), iterations=1)
-    # never touch anything outside the paper interior
-    change[:25, :] = 0; change[-25:, :] = 0; change[:, :25] = 0; change[:, -25:] = 0
-    # matched grain so retouched patches aren't smoother than real paper
-    grain = rng2.normal(0, 2.2, out_rect.shape).astype(np.float32)
-    cf = (change > 0).astype(np.float32)
-    out_rect = np.clip(out_rect.astype(np.float32) + grain * cf[..., None], 0, 255).astype(np.uint8)
-
+    # warp the rebuilt paper interior back; the photo's paper edges and desk
+    # stay original outside the eroded mask
     Hinv = np.linalg.inv(Hm)
     back = cv2.warpPerspective(out_rect, Hinv, (img.shape[1], img.shape[0]),
                                flags=cv2.INTER_CUBIC)
-    cmask = cv2.warpPerspective(change, Hinv, (img.shape[1], img.shape[0]))
-    cmask = cv2.GaussianBlur(cmask, (7, 7), 0).astype(np.float32) / 255.0
-    final = (img.astype(np.float32) * (1 - cmask[..., None]) +
-             back.astype(np.float32) * cmask[..., None]).astype(np.uint8)
-    cv2.imwrite(out_path, final, [cv2.IMWRITE_JPEG_QUALITY, 90])
-    print(f"swapped page {num}: rules={len(grid)} grid0={grid[0]} box=({box_top},{box_bot}) gap~{grid[1]-grid[0] if len(grid)>1 else 0} margin={margin_x}")
+    pmask = cv2.warpPerspective(np.full((RH, RW), 255, np.uint8), Hinv,
+                                (img.shape[1], img.shape[0]))
+    pmask = cv2.erode(pmask, np.ones((31, 31), np.uint8))
+    pmask = cv2.GaussianBlur(pmask, (21, 21), 0).astype(np.float32) / 255.0
+    final = (img.astype(np.float32) * (1 - pmask[..., None]) +
+             back.astype(np.float32) * pmask[..., None]).astype(np.uint8)
+    cv2.imwrite(out_path, final, [cv2.IMWRITE_JPEG_QUALITY, 92])
+    print(f"swapped page {num}: rules={len(grid)} grid0={grid[0]} gap~{grid[1]-grid[0] if len(grid)>1 else 0} margin={margin_x}")
 
 
 def main():
@@ -276,8 +173,7 @@ def main():
         swap_page(os.path.join(BASE, "orig", f"p-{n-1:03d}.jpg"),
                   os.path.join(BASE, "text", f"p{n:03d}.txt"),
                   n,
-                  os.path.join(BASE, "swapped", f"page{n:03d}.jpg"),
-                  debug=("--debug" in os.environ.get("SWAP_DEBUG", "")) or True)
+                  os.path.join(BASE, "swapped", f"page{n:03d}.jpg"))
 
 
 if __name__ == "__main__":
