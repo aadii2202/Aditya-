@@ -56,11 +56,15 @@ def paper_background(rng, rule_gap):
 
 
 class Page:
-    def __init__(self, num, rule_gap):
+    def __init__(self, num, rule_gap, rule_ys=None, plain=False):
         self.num = num
         self.rng = random.Random(1000 + num)
         self.rule_gap = rule_gap
-        self.img = paper_background(self.rng, rule_gap)
+        self.rule_ys = rule_ys
+        if plain:
+            self.img = Image.new("RGB", (W, H), (255, 255, 255))
+        else:
+            self.img = paper_background(self.rng, rule_gap)
         self.line_idx = 0
         self.slant = self.rng.uniform(-0.4, 0.4)  # degrees, whole-page slant tendency
         self.last_node_center = None
@@ -68,10 +72,15 @@ class Page:
         self.pen = "blue"
 
     def baseline(self, idx):
+        if self.rule_ys is not None:
+            idx = max(0, min(idx, len(self.rule_ys) - 1))
+            return self.rule_ys[idx] - 5
         return RULE_TOP + idx * self.rule_gap - 5
 
     @property
     def max_lines(self):
+        if self.rule_ys is not None:
+            return len(self.rule_ys)
         return (RULE_BOT - RULE_TOP) // self.rule_gap + 1
 
     def ink(self):
@@ -356,6 +365,46 @@ def parse(path):
     return entries
 
 
+def paint_entries(page, entries, num):
+    for kind, a, b, pen in entries:
+        page.pen = pen
+        if kind == "blank":
+            page.line_idx += 1
+        elif kind == "center":
+            _, text, ul = a
+            page.para("", text, center=True, underline=ul)
+        elif kind == "tree":
+            page.tree(a, b)
+        elif kind == "vchain":
+            page.vchain(a)
+        elif kind == "fan":
+            page.fan(a)
+        else:
+            label, text, fx, cxx, ul = a
+            page.para(label, text, first_x=fx, cont_x=cxx, underline=ul)
+        if page.line_idx > page.max_lines + 1:
+            print(f"  WARNING p{num}: overflowed page ({page.line_idx} lines used)")
+
+
+def render_layer(num, txt_path, rule_ys, margin_x):
+    """Render writing only (white background) aligned to given rule y positions."""
+    global MARGIN_X, BODY_X, LEFT_EDGE, RIGHT_X
+    old = (MARGIN_X, BODY_X, LEFT_EDGE, RIGHT_X)
+    MARGIN_X = int(margin_x)
+    BODY_X = MARGIN_X + 55
+    LEFT_EDGE = max(25, MARGIN_X - 118)
+    RIGHT_X = W - 70
+    try:
+        entries = parse(txt_path)
+        gaps = [rule_ys[i + 1] - rule_ys[i] for i in range(len(rule_ys) - 1)]
+        gap = int(sorted(gaps)[len(gaps) // 2]) if gaps else 46
+        page = Page(num, gap, rule_ys=rule_ys, plain=True)
+        paint_entries(page, entries, num)
+        return page.img
+    finally:
+        MARGIN_X, BODY_X, LEFT_EDGE, RIGHT_X = old
+
+
 def render_page(num, txt_path, out_path):
     entries = parse(txt_path)
     for gap in (46, 44, 42, 40, 38, 36):
@@ -383,24 +432,7 @@ def render_page(num, txt_path, out_path):
     else:
         print(f"  WARNING p{num}: content overflows even at tightest spacing ({need} lines)")
     page = Page(num, gap)
-    for kind, a, b, pen in entries:
-        page.pen = pen
-        if kind == "blank":
-            page.line_idx += 1
-        elif kind == "center":
-            _, text, ul = a
-            page.para("", text, center=True, underline=ul)
-        elif kind == "tree":
-            page.tree(a, b)
-        elif kind == "vchain":
-            page.vchain(a)
-        elif kind == "fan":
-            page.fan(a)
-        else:
-            label, text, fx, cxx, ul = a
-            page.para(label, text, first_x=fx, cont_x=cxx, underline=ul)
-        if page.line_idx > page.max_lines + 1:
-            print(f"  WARNING p{num}: overflowed page ({page.line_idx} lines used)")
+    paint_entries(page, entries, num)
     # slight overall page rotation like a scan
     rot = random.Random(500 + num).uniform(-0.35, 0.35)
     img = page.img.rotate(rot, resample=Image.BICUBIC, expand=False, fillcolor=(242, 240, 236))
