@@ -1,0 +1,21 @@
+P|D.|Delayed.
+I|1|Occur Some time after Cessation of treatment
+I|1|eg - Teratogenicity from thalidomide.
+
+P|E.|End of Use.
+I|1|Occurs after stoping of drug.
+I|1|eg - Withdrawl Syndrome.
+I|1|- rebound hypertension from clonidine. Withdrawl.
+
+P|F.|Failure of therapy
+I|1|Unexpected failure of drug to produce expected therapeutic response.
+I|1|eg - Contraceptive Failure.
+
+I|1|Reporting ->
+I|1|Minimal Standard information to be Provided.
+P|i.|Patient information.
+P|ii.|Description of adverse reaction including laboratory results.
+P|iii.|Information related to Suspected drug.
+P|iv.|Reporter information.
+I|1|Process ->
+I|1|Reporter Should send precise and accurate monitoring in Standardized format with Sealed envelope and send directly to pharmacovigilance centre ->

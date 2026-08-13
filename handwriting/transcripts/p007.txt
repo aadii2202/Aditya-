@@ -1,0 +1,14 @@
+P|-|efficiency, accountability and standards.
+
+P|i.|Pharmacy management director identifies relative Standard organization design molded to match with unique requirements of the pharmacy depending on the number of personnel and Scope of Services oversees overall policies, budgeting and Compliance.
+
+P|ii.|Chief Pharmacist -> manages staff, formulates policies Coordina with other department and P and T Committee.
+
+P|iii.|Staff Pharmacists -> Manage Inpatient and Outpatient dispensing, assist with inventory, Stock maintenance and logistics, Clinical Services.
+
+P|iv.|Support Staff -> Pharmacy technicians.
+I|2|Storekeepers.
+VC|Associate Director
+VC|Chief Pharmacist
+VC|Chief Assistant Pharmacist
+F|Secretary|Supervisor|Pharmacy Residents

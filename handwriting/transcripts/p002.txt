@@ -1,0 +1,14 @@
+@P|Ques 3 ->|What is Medication history Interview?
+
+P|Ans ->|A Structured interview Conducted by a Pharmacist to gather a complete record of a Patient's current prescription, OTC (over the Counter), and herbal medication use to prevent reconciliation errors.
+
+@P|Ques 4 ->|Define Adverse Drug Reaction (ADR).
+
+P|Ans ->|Any noxious unintended, and undesired response to a drug that occurs at doses normally used in human for prophylaxis diagnosis, or therapy.
+
+@P|Ques 5 ->|Define Drug Interaction with one Suitable example.
+P|Ans ->|A Quantifiable alteration in response of one when administered with another drug, Food, alcohol, Smoking or diagnostic tests.
+
+@CU|PART-B
+@P|Ques 1 ->|Explain the organization and functions of a hospital pharmacy with a neat organization chart.
+P|Ans ->|Hospital Pharmacy operates under a structured hierarchy designed to ensure administrative.

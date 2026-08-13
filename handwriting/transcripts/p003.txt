@@ -1,0 +1,24 @@
+P|c.|Toxic effect.
+P|d.|Secondary Pharmacological effect.
+
+P|ii.|Unpredictable : Reactions that are unrelated to the drug's primary pharmacology.
+I|1|eg -> Anaphylactic Shock by penicillin allergy
+P|a.|Idiosyncrasy.
+P|b.|Allergic reaction.
+P|c.|Photosensitivity.
+P|d.|Intolerance.
+
+I|1|Rawlin's Thompson Classification ->
+I|1|Type ->
+P|A.|Augmented
+I|1|Extention of Pharmacological action.
+I|1|eg - hypoglycemia by insulin.
+I|2|hemorrhage by warfarin.
+
+P|B.|Bizarre
+I|1|Immune-mediated hypersensitivity reaction.
+I|1|eg - Anaphylaxis to penicillin allergy.
+
+P|C.|Chronic
+I|1|Associated with long-term exposure / therapy and Cumulative dose.
+I|1|eg - Analgesic nephropathy.
